@@ -150,7 +150,7 @@ def load_checkpoint_selective(net, snapshot, scene=None):
     """
     Restore weights and optimizer (if needed ) for resuming job.
     """
-    checkpoint = torch.load(snapshot, map_location=torch.device('cpu'))
+    checkpoint = torch.load(snapshot, map_location=torch.device('cpu'), weights_only=False)
 
     if 'state_dict' in checkpoint:
         net = state_restore_selective(net, checkpoint['state_dict'], scene)

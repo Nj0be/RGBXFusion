@@ -10,20 +10,6 @@ from datetime import datetime
 import torch
 import torchvision.utils
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
-try:
-    from apex import amp
-    from apex.parallel import DistributedDataParallel as ApexDDP
-    from apex.parallel import convert_syncbn_model
-    has_apex = True
-except ImportError:
-    has_apex = False
-
-has_native_amp = False
-try:
-    if getattr(torch.cuda.amp, 'autocast') is not None:
-        has_native_amp = True
-except AttributeError:
-    pass
 
 from data import create_dataset, create_loader, resolve_input_config
 from utils.evaluator import create_evaluator
@@ -32,7 +18,7 @@ from effdet import create_model, unwrap_bench, create_loader
 from effdet.data import resolve_input_config, SkipSubset
 from effdet.anchors import Anchors, AnchorLabeler
 from timm.models import resume_checkpoint, load_checkpoint
-from timm.models.layers import set_layer_config
+from timm.layers import set_layer_config
 from timm.utils import *
 from timm.optim import create_optimizer
 from timm.scheduler import create_scheduler
@@ -175,10 +161,6 @@ parser.add_argument('--save-images', action='store_true', default=False,
                     help='save images of input bathes every log interval for debugging')
 parser.add_argument('--amp', action='store_true', default=False,
                     help='use NVIDIA Apex AMP or Native AMP for mixed precision training')
-parser.add_argument('--apex-amp', action='store_true', default=False,
-                    help='Use NVIDIA Apex AMP mixed precision')
-parser.add_argument('--native-amp', action='store_true', default=False,
-                    help='Use Native Torch AMP mixed precision')
 parser.add_argument('--channels-last', action='store_true', default=False,
                     help='Use channels_last memory layout')
 parser.add_argument('--pin-mem', action='store_true', default=False,
@@ -220,7 +202,7 @@ def get_clip_parameters(model, exclude_head=False):
         # FIXME this a bit of a quick and dirty hack to skip classifier head params
         return [p for n, p in model.named_parameters() if 'predict' not in n]
     else:
-        return model.parameters()
+        return list(model.parameters())
 
 
 def main():
@@ -248,28 +230,6 @@ def main():
                      % (args.rank, args.world_size))
     else:
         logging.info('Training with a single process on 1 GPU.')
-
-    use_amp = None
-    if args.amp:
-        # for backwards compat, `--amp` arg tries apex before native amp
-        if has_native_amp:
-            args.native_amp = True
-        elif has_apex:
-            args.apex_amp = True
-        else:
-            logging.warning("Neither APEX or native Torch AMP is available, using float32. "
-                            "Install NVIDA apex or upgrade to PyTorch 1.6.")
-
-    if args.native_amp:
-        if has_native_amp:
-            use_amp = 'native'
-        else:
-            logging.warning("Native AMP not available, using float32. Upgrade to PyTorch 1.6.")
-    elif args.apex_amp:
-        if has_apex:
-            use_amp = 'apex'
-        else:
-            logging.warning("APEX AMP not available, using float32. Install NVIDA apex")
 
     random_seed(args.seed, args.rank)
 
@@ -302,37 +262,23 @@ def main():
         model = model.to(memory_format=torch.channels_last)
 
     if args.distributed and args.sync_bn:
-        if has_apex and use_amp == 'apex':
-            model = convert_syncbn_model(model)
-        else:
-            model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         if args.local_rank == 0:
             logging.info(
                 'Converted model to use Synchronized BatchNorm. WARNING: You may have issues if using '
                 'zero initialized BN layers (enabled by default for ResNets) while sync-bn enabled.')
 
     if args.torchscript:
-        assert not use_amp == 'apex', 'Cannot use APEX AMP with torchscripted model, force native amp with `--native-amp` flag'
         assert not args.sync_bn, 'Cannot use SyncBatchNorm with torchscripted model. Use `--dist-bn reduce` instead of `--sync-bn`'
         model = torch.jit.script(model)
 
     optimizer = create_optimizer(args, model)
 
-    amp_autocast = suppress  # do nothing
     loss_scaler = None
-    if use_amp == 'native':
-        amp_autocast = torch.cuda.amp.autocast
-        loss_scaler = NativeScaler()
-        if args.local_rank == 0:
-            logging.info('Using native Torch AMP. Training in mixed precision.')
-    elif use_amp == 'apex':
-        model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
-        loss_scaler = ApexScaler()
-        if args.local_rank == 0:
-            logging.info('Using NVIDIA APEX AMP. Training in mixed precision.')
-    else:
-        if args.local_rank == 0:
-            logging.info('AMP not enabled. Training in float32.')
+    amp_autocast = torch.amp.autocast
+    loss_scaler = NativeScaler()
+    if args.local_rank == 0:
+        logging.info('Using native Torch AMP. Training in mixed precision.')
 
     # optionally resume from a checkpoint
     resume_epoch = None
@@ -351,14 +297,9 @@ def main():
             load_checkpoint(unwrap_bench(model_ema), args.resume, use_ema=True)
 
     if args.distributed:
-        if has_apex and use_amp == 'apex':
-            if args.local_rank == 0:
-                logging.info("Using apex DistributedDataParallel.")
-            model = ApexDDP(model, delay_allreduce=True)
-        else:
-            if args.local_rank == 0:
-                logging.info("Using torch DistributedDataParallel.")
-            model = NativeDDP(model, device_ids=[args.device])
+        if args.local_rank == 0:
+            logging.info("Using torch DistributedDataParallel.")
+        model = NativeDDP(model, device_ids=[args.device])
         # NOTE: EMA model does not need to be wrapped by DDP...
         if model_ema is not None and not args.resume:
             # ...but it is a good idea to sync EMA copy of weights
@@ -546,7 +487,7 @@ def train_epoch(
         if args.channels_last:
             input = input.contiguous(memory_format=torch.channels_last)
 
-        with amp_autocast():
+        with amp_autocast('cuda'):
             output = model(input, target)
         loss = output['loss']
 

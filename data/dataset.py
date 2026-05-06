@@ -253,6 +253,7 @@ class XBitFusionDatsetSTF(data.Dataset):
             target.update(ann)
 
         gated_img_path = os.path.join(self.gated_data_dir, img_info['file_name'])
+        print(gated_img_path)
         gated_img = cv2.imread(gated_img_path, -1) / (2**self.gated_bits - 1) * 255
         if len(gated_img.shape) < 3:
             gated_img = np.stack([gated_img]*3, axis=2)

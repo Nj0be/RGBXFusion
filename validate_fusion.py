@@ -6,10 +6,10 @@ import torch
 import torch.nn.parallel
 from contextlib import suppress
 
-from effdet import create_model, create_evaluator
+from effdet import create_model
 from timm.utils import AverageMeter, setup_default_logging
 from timm.models import load_checkpoint
-from timm.models.layers import set_layer_config
+from timm.layers import set_layer_config
 
 from models.models import Att_FusionNet
 from models.detector import DetBenchPredictImagePair
@@ -21,20 +21,6 @@ from utils.utils import visualize_detections
 import numpy as np
 
 from utils.utils import FasterRCNNBoxScoreTarget
-
-has_apex = False
-try:
-    from apex import amp
-    has_apex = True
-except ImportError:
-    pass
-
-has_native_amp = False
-try:
-    if getattr(torch.cuda.amp, 'autocast') is not None:
-        has_native_amp = True
-except AttributeError:
-    pass
 
 torch.backends.cudnn.benchmark = True
 
@@ -71,7 +57,7 @@ parser.add_argument('-b', '--batch-size', default=16, type=int,
 parser.add_argument('--img-size', default=None, type=int,
                     metavar='N', help='Input image dimension, uses model default if empty')
 parser.add_argument('--rgb_mean', type=float, nargs='+', default=None, metavar='MEAN',
-                        help='Override mean pixel value of RGB dataset')
+                    help='Override mean pixel value of RGB dataset')
 parser.add_argument('--rgb_std', type=float,  nargs='+', default=None, metavar='STD',
                     help='Override std deviation of of RGB dataset')
 parser.add_argument('--thermal_mean', type=float, nargs='+', default=None, metavar='MEAN',
@@ -89,7 +75,7 @@ parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
 parser.add_argument('--channels', default=128, type=int,
-                        metavar='N', help='channels (default: 128)')
+                    metavar='N', help='channels (default: 128)')
 parser.add_argument('--num-gpu', type=int, default=1,
                     help='Number of GPUS to use')
 parser.add_argument('--no-prefetcher', action='store_true', default=False,
@@ -100,10 +86,6 @@ parser.add_argument('--use-ema', dest='use_ema', action='store_true',
                     help='use ema version of weights if present')
 parser.add_argument('--amp', action='store_true', default=False,
                     help='Use AMP mixed precision. Defaults to Apex, fallback to native Torch AMP.')
-parser.add_argument('--apex-amp', action='store_true', default=False,
-                    help='Use NVIDIA Apex AMP mixed precision')
-parser.add_argument('--native-amp', action='store_true', default=False,
-                    help='Use Native Torch AMP mixed precision')
 parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
 parser.add_argument('--results', default='', type=str, metavar='FILENAME',
@@ -117,16 +99,9 @@ parser.add_argument('--wandb', action='store_true',
                     help='use wandb for logging and visualization')
 
 
-
 def validate(args):
     setup_default_logging()
 
-    if args.amp:
-        if has_native_amp:
-            args.native_amp = True
-        elif has_apex:
-            args.apex_amp = True
-    assert not args.apex_amp or not args.native_amp, "Only one AMP mode should be set."
     args.pretrained = args.pretrained or not args.checkpoint  # might as well try to validate something
     args.prefetcher = not args.no_prefetcher
 
@@ -150,7 +125,7 @@ def validate(args):
     else:
         model = Att_FusionNet(args)
         if args.checkpoint:
-            load_checkpoint(model, args.checkpoint, use_ema=args.use_ema, strict=False)
+            load_checkpoint(model, args.checkpoint, use_ema=args.use_ema, strict=False, weights_only=False)
         bench = DetBenchPredictImagePair(model)
     model_config = bench.config
 
@@ -160,11 +135,8 @@ def validate(args):
     bench = bench.cuda()
 
     amp_autocast = suppress
-    if args.apex_amp:
-        bench = amp.initialize(bench, opt_level='O1')
-        print('Using NVIDIA APEX AMP. Validating in mixed precision.')
-    elif args.native_amp:
-        amp_autocast = torch.cuda.amp.autocast
+    if args.amp:
+        amp_autocast = torch.amp.autocast
         print('Using native Torch AMP. Validating in mixed precision.')
     else:
         print('AMP not enabled. Validating in float32.')
@@ -207,7 +179,7 @@ def validate(args):
 
     with torch.no_grad():
         for i, (thermal_input, rgb_input, target) in enumerate(loader):
-            with amp_autocast():
+            with amp_autocast('cuda'):
                 if args.branch == 'single':
                     output = bench(thermal_input, img_info=target)
                 else:
@@ -243,15 +215,13 @@ def main():
     args = parser.parse_args()
 
     print("Dataset: "+args.dataset)
+
     if args.checkpoint == '':
-
         print("Branch: "+args.branch)
-
     else:
         print("Checkpoint: "+args.checkpoint)
         print("Att Type: "+args.att_type)
 
-    
     mean_ap = validate(args)
     print("*"*50)
     print("Mean Average Precision Obtained is : "+str(mean_ap))

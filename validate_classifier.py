@@ -13,25 +13,11 @@ import cv2
 import torchvision
 from effdet.data import create_loader, resolve_input_config
 from timm.utils import AverageMeter, setup_default_logging, accuracy
-from timm.models.layers import set_layer_config
+from timm.layers import set_layer_config
 
 from data import create_dataset
 from utils.evaluator import create_evaluator
 from models.create_model import create_model
-
-has_apex = False
-try:
-    from apex import amp
-    has_apex = True
-except ImportError:
-    pass
-
-has_native_amp = False
-try:
-    if getattr(torch.cuda.amp, 'autocast') is not None:
-        has_native_amp = True
-except AttributeError:
-    pass
 
 torch.backends.cudnn.benchmark = True
 
@@ -90,10 +76,6 @@ parser.add_argument('--use-ema', dest='use_ema', action='store_true',
                     help='use ema version of weights if present')
 parser.add_argument('--amp', action='store_true', default=False,
                     help='Use AMP mixed precision. Defaults to Apex, fallback to native Torch AMP.')
-parser.add_argument('--apex-amp', action='store_true', default=False,
-                    help='Use NVIDIA Apex AMP mixed precision')
-parser.add_argument('--native-amp', action='store_true', default=False,
-                    help='Use Native Torch AMP mixed precision')
 parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
 parser.add_argument('--results', default='', type=str, metavar='FILENAME',
@@ -105,12 +87,6 @@ parser.add_argument('--kitti-eval', action='store_true', help='Use for Seeing Th
 def validate(args):
     setup_default_logging()
 
-    if args.amp:
-        if has_native_amp:
-            args.native_amp = True
-        elif has_apex:
-            args.apex_amp = True
-    assert not args.apex_amp or not args.native_amp, "Only one AMP mode should be set."
     args.pretrained = args.pretrained or not args.checkpoint  # might as well try to validate something
     args.prefetcher = not args.no_prefetcher
 
@@ -139,11 +115,8 @@ def validate(args):
     bench = bench.cuda()
 
     amp_autocast = suppress
-    if args.apex_amp:
-        bench = amp.initialize(bench, opt_level='O1')
-        print('Using NVIDIA APEX AMP. Validating in mixed precision.')
-    elif args.native_amp:
-        amp_autocast = torch.cuda.amp.autocast
+    if args.amp:
+        amp_autocast = torch.amp.autocast
         print('Using native Torch AMP. Validating in mixed precision.')
     else:
         print('AMP not enabled. Validating in float32.')
@@ -184,7 +157,7 @@ def validate(args):
         for i, (input, target) in enumerate(loader):
             # if i > 2:
             #     break
-            with amp_autocast():
+            with amp_autocast('cuda'):
                 output = bench(input, img_info=target)
             #evaluator.add_predictions(output, target)
 

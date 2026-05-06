@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from effdet.loss import DetectionLoss
 from effdet.anchors import AnchorLabeler, Anchors, generate_detections
-import numpy as np
+
+
 def _post_process(
         cls_outputs: List[torch.Tensor],
         box_outputs: List[torch.Tensor],
@@ -117,8 +118,8 @@ class DetBenchTrain(nn.Module):
         if self.anchor_labeler is None:
             # target should contain pre-computed anchor labels if labeler not present in bench
             assert 'label_num_positives' in target
-            cls_targets = [target[f'label_cls_{l}'] for l in range(self.num_levels)]
-            box_targets = [target[f'label_bbox_{l}'] for l in range(self.num_levels)]
+            cls_targets = [target[f'label_cls_{level}'] for level in range(self.num_levels)]
+            box_targets = [target[f'label_bbox_{level}'] for level in range(self.num_levels)]
             num_positives = target['label_num_positives']
         else:
             cls_targets, box_targets, num_positives = self.anchor_labeler.batch_label_anchors(
@@ -139,14 +140,13 @@ class DetBenchTrain(nn.Module):
 
 
 class DetBenchTrainImagePair(DetBenchTrain):
-
     def forward(self, thermal_img, rgb_img, target: Dict[str, torch.Tensor], eval_pass=False, branch='fusion'):
         class_out, box_out = self.model([thermal_img, rgb_img], branch=branch)
         if self.anchor_labeler is None:
             # target should contain pre-computed anchor labels if labeler not present in bench
             assert 'label_num_positives' in target
-            cls_targets = [target[f'label_cls_{l}'] for l in range(self.num_levels)]
-            box_targets = [target[f'label_bbox_{l}'] for l in range(self.num_levels)]
+            cls_targets = [target[f'label_cls_{level}'] for level in range(self.num_levels)]
+            box_targets = [target[f'label_bbox_{level}'] for level in range(self.num_levels)]
             num_positives = target['label_num_positives']
         else:
             cls_targets, box_targets, num_positives = self.anchor_labeler.batch_label_anchors(
@@ -173,7 +173,6 @@ class DetBenchTrainImagePair(DetBenchTrain):
 
 
 class DetBenchPredictImagePair(DetBenchPredict):
-
     def forward(self, thermal_img, rgb_img, img_info: Optional[Dict[str, torch.Tensor]] = None, branch='fusion'):
         class_out, box_out = self.model([thermal_img, rgb_img], branch=branch)
         class_out, box_out, indices, classes = _post_process(
@@ -190,6 +189,7 @@ class DetBenchPredictImagePair(DetBenchPredict):
             img_scale, img_size, max_det_per_image=self.max_det_per_image, soft_nms=self.soft_nms
         )
 
+
 class ClsBenchPredict(nn.Module):
     def __init__(self, model):
         super(ClsBenchPredict, self).__init__()
@@ -200,7 +200,8 @@ class ClsBenchPredict(nn.Module):
         _, _, image_class_out = self.model(x)
         output = torch.softmax(image_class_out, dim=1)
         return output
-    
+
+
 class ClsBenchTrain(nn.Module):
     def __init__(self, model):
         super(ClsBenchTrain, self).__init__()

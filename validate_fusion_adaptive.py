@@ -9,7 +9,7 @@ from contextlib import suppress
 from effdet import create_model, create_evaluator
 from timm.utils import AverageMeter, setup_default_logging
 from timm.models import load_checkpoint
-from timm.models.layers import set_layer_config
+from timm.layers import set_layer_config
 
 from models.models import Att_FusionNet, Adaptive_Att_FusionNet
 from models.detector import DetBenchPredictImagePair
@@ -17,20 +17,6 @@ from data import create_dataset, create_loader, resolve_input_config
 from utils.evaluator import create_evaluator
 from utils.utils import load_checkpoint_selective
 from utils.utils import visualize_detections
-
-has_apex = False
-try:
-    from apex import amp
-    has_apex = True
-except ImportError:
-    pass
-
-has_native_amp = False
-try:
-    if getattr(torch.cuda.amp, 'autocast') is not None:
-        has_native_amp = True
-except AttributeError:
-    pass
 
 torch.backends.cudnn.benchmark = True
 
@@ -102,10 +88,6 @@ parser.add_argument('--use-ema', dest='use_ema', action='store_true',
                     help='use ema version of weights if present')
 parser.add_argument('--amp', action='store_true', default=False,
                     help='Use AMP mixed precision. Defaults to Apex, fallback to native Torch AMP.')
-parser.add_argument('--apex-amp', action='store_true', default=False,
-                    help='Use NVIDIA Apex AMP mixed precision')
-parser.add_argument('--native-amp', action='store_true', default=False,
-                    help='Use Native Torch AMP mixed precision')
 parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
 parser.add_argument('--results', default='', type=str, metavar='FILENAME',
@@ -122,12 +104,6 @@ parser.add_argument('--wandb', action='store_true',
 def validate(args):
     setup_default_logging()
 
-    if args.amp:
-        if has_native_amp:
-            args.native_amp = True
-        elif has_apex:
-            args.apex_amp = True
-    assert not args.apex_amp or not args.native_amp, "Only one AMP mode should be set."
     args.pretrained = args.pretrained or not args.checkpoint  # might as well try to validate something
     args.prefetcher = not args.no_prefetcher
 
@@ -151,7 +127,7 @@ def validate(args):
     else:
         model = Adaptive_Att_FusionNet(args)
         if args.checkpoint:
-            load_checkpoint(model, args.checkpoint, use_ema=args.use_ema, strict=False)
+            load_checkpoint(model, args.checkpoint, use_ema=args.use_ema, strict=False, weights_only=False)
         if args.checkpoint_cls:
             load_checkpoint_selective(model, args.checkpoint_cls)
         if args.num_scenes:
@@ -166,11 +142,8 @@ def validate(args):
     bench = bench.cuda()
 
     amp_autocast = suppress
-    if args.apex_amp:
-        bench = amp.initialize(bench, opt_level='O1')
-        print('Using NVIDIA APEX AMP. Validating in mixed precision.')
-    elif args.native_amp:
-        amp_autocast = torch.cuda.amp.autocast
+    if args.amp:
+        amp_autocast = torch.amp.autocast
         print('Using native Torch AMP. Validating in mixed precision.')
     else:
         print('AMP not enabled. Validating in float32.')
@@ -215,7 +188,7 @@ def validate(args):
 
     with torch.no_grad():
         for i, (thermal_input, rgb_input, target) in enumerate(loader):
-            with amp_autocast():
+            with amp_autocast('cuda'):
                 if args.branch == 'single':
                     output = bench(thermal_input, img_info=target)
                 else:

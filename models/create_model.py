@@ -1,4 +1,4 @@
-from effdet.efficientdet import EfficientDet, HeadNet
+from effdet.efficientdet import EfficientDet
 from effdet.bench import DetBenchTrain, DetBenchPredict
 from effdet.config import get_efficientdet_config
 from effdet.helpers import load_pretrained, load_checkpoint
@@ -59,10 +59,10 @@ def create_model_from_config(
     if checkpoint_path:
         print('loading user specified checkpoint path...')
         if bench_task == 'train_cls' or bench_task == 'predict_cls':
-            load_checkpoint(model, checkpoint_path, use_ema=checkpoint_ema, strict=False)
+            load_checkpoint(model, checkpoint_path, use_ema=checkpoint_ema, strict=False, weights_only=False)
             load_checkpoint_selective(model, checkpoint_path)
         else:
-            load_checkpoint(model, checkpoint_path, use_ema=checkpoint_ema, strict=False)
+            load_checkpoint(model, checkpoint_path, use_ema=checkpoint_ema, strict=False, weights_only=False)
             load_checkpoint_selective(model, checkpoint_path)
 
     # wrap model in task specific training/prediction bench if set

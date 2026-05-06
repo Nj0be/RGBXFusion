@@ -4,12 +4,11 @@ import torch.nn as nn
 import effdet
 from effdet import EfficientDet
 
-
 from models.fusion_modules import CBAMLayer, attention_block, shuffle_attention_block
+
 
 ##################################### Attention Fusion Net ###############################################
 class Att_FusionNet(nn.Module):
-
     def __init__(self, args):
         super(Att_FusionNet, self).__init__()
 
@@ -22,23 +21,20 @@ class Att_FusionNet(nn.Module):
         rgb_det = EfficientDet(self.config)
 
         if args.thermal_checkpoint_path:
-            effdet.helpers.load_checkpoint(thermal_det, args.thermal_checkpoint_path)
+            effdet.helpers.load_checkpoint(thermal_det, args.thermal_checkpoint_path, weights_only=False)
             print('Loading Thermal from {}'.format(args.thermal_checkpoint_path))
         else:
             print('Thermal checkpoint path not provided.')
-        
+
         if args.rgb_checkpoint_path:
-            effdet.helpers.load_checkpoint(rgb_det, args.rgb_checkpoint_path)
+            effdet.helpers.load_checkpoint(rgb_det, args.rgb_checkpoint_path, weights_only=False)
             print('Loading RGB from {}'.format(args.rgb_checkpoint_path))
         else:
             if 'flir' in args.dataset:
                 effdet.helpers.load_pretrained(rgb_det, self.config.url)
                 print('Loading RGB from {}'.format(self.config.url))
             print('RGB checkpoint path not provided.')
-            
 
-            
-        
         self.thermal_backbone = thermal_det.backbone
         self.thermal_fpn = thermal_det.fpn
         self.thermal_class_net = thermal_det.class_net
@@ -50,16 +46,15 @@ class Att_FusionNet(nn.Module):
         self.rgb_box_net = rgb_det.box_net
 
         fusion_det = EfficientDet(self.config)
-        
+
         if args.init_fusion_head_weights == 'thermal':
-            effdet.helpers.load_checkpoint(fusion_det, args.thermal_checkpoint_path) # This is optional
+            effdet.helpers.load_checkpoint(fusion_det, args.thermal_checkpoint_path, weights_only=False) # This is optional
             print("Loading fusion head from thermal checkpoint.")
         elif args.init_fusion_head_weights == 'rgb':
-            effdet.helpers.load_checkpoint(fusion_det, args.rgb_checkpoint_path)
+            effdet.helpers.load_checkpoint(fusion_det, args.rgb_checkpoint_path, weights_only=False)
             print("Loading fusion head from rgb checkpoint.")
         else:
             print('Fusion head random init.')
-        
 
         self.fusion_class_net = fusion_det.class_net
         self.fusion_box_net = fusion_det.box_net
@@ -83,7 +78,7 @@ class Att_FusionNet(nn.Module):
 
         class_net = getattr(self, f'{branch}_class_net')
         box_net = getattr(self, f'{branch}_box_net')
-        
+
         x = None
         if branch =='fusion':
             thermal_x = self.thermal_backbone(thermal_x)
@@ -106,14 +101,11 @@ class Att_FusionNet(nn.Module):
                 x = rgb_x
             feats = backbone(x)
             out = fpn(feats)
-        
-        
+
         x_class = class_net(out)
         x_box = box_net(out)
 
         return x_class, x_box
-
-
 
 
 ##################################### Adaptive Fusion Net ###############################################
@@ -126,8 +118,8 @@ class Classifier(nn.Module):
         x = self.l1(x)
         return x
 
-class Adaptive_Att_FusionNet(Att_FusionNet):
 
+class Adaptive_Att_FusionNet(Att_FusionNet):
     def __init__(self, args):
         Att_FusionNet.__init__(self, args)
 
@@ -159,7 +151,7 @@ class Adaptive_Att_FusionNet(Att_FusionNet):
 
         class_net = getattr(self, f'{branch}_class_net')
         box_net = getattr(self, f'{branch}_box_net')
-        
+
         x = None
         if branch =='fusion':
             thermal_x = self.thermal_backbone(thermal_x)
@@ -187,8 +179,7 @@ class Adaptive_Att_FusionNet(Att_FusionNet):
                 x = rgb_x
             feats = backbone(x)
             out = fpn(feats)
-        
-        
+
         x_class = class_net(out)
         x_box = box_net(out)
 
@@ -197,7 +188,6 @@ class Adaptive_Att_FusionNet(Att_FusionNet):
 
 ##################################### Scene Classifier ###############################################
 class EfficientDetwithCls(EfficientDet):
-
     def __init__(self, config, pretrained_backbone=True, alternate_init=False):
         EfficientDet.__init__(self, config, pretrained_backbone, alternate_init)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))

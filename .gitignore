@@ -25,3 +25,7 @@ Datasets/FLIR_Aligned/images_thermal_test/*
 Datasets/FLIR_Aligned/images_thermal_train/*
 *.pth.tar
 *.pth
+Datasets/M3FD/Ir/*
+Datasets/M3FD/Vis/*
+Datasets/STF/gated_full_acc_rect_aligned/*
+Datasets/STF/cam_stereo_left_rect_aligned/*

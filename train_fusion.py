@@ -97,18 +97,15 @@ if __name__ == '__main__':
 
     net = Att_FusionNet(args)
 
-    
     training_bench = DetBenchTrainImagePair(net, create_labeler=True)
 
     freeze(training_bench, args.freeze_layer)
-    
+
     full_backbone_params = count_parameters(training_bench.model.thermal_backbone) + count_parameters(training_bench.model.rgb_backbone)
     head_net_params = count_parameters(training_bench.model.fusion_class_net) + count_parameters(training_bench.model.fusion_box_net)
     bifpn_params = count_parameters(training_bench.model.rgb_fpn) + count_parameters(training_bench.model.thermal_fpn)
     full_params = count_parameters(training_bench.model)
     fusion_net_params = sum([count_parameters(getattr(training_bench.model,"fusion_"+args.att_type+str(i))) for i in range(5)])
-
-
 
     print("*"*50)
     print("Backbone Params : {}".format(full_backbone_params) )
@@ -164,13 +161,12 @@ if __name__ == '__main__':
 
     # load checkpoint
     if args.checkpoint:
-        load_checkpoint(net, args.checkpoint)
+        load_checkpoint(net, args.checkpoint, weights_only=False)
         print('Loaded checkpoint from ', args.checkpoint)
 
     # set up checkpoint saver
     output_base = args.output if args.output else './output'
     exp_name = args.save+"_"+args.dataset.upper()+"_"+args.att_type.upper()
-        
 
     output_dir = get_outdir(output_base, 'train_flir', exp_name)
     saver = CheckpointSaver(
@@ -189,9 +185,7 @@ if __name__ == '__main__':
     train_loss = []
     val_loss = []
 
-
     for epoch in range(1, args.epochs + 1):
-        
         train_losses_m = AverageMeter()
         val_losses_m = AverageMeter()
 
@@ -214,10 +208,10 @@ if __name__ == '__main__':
             optimizer.step()
 
             if args.wandb:
-               visualize_target(train_dataset, target, wandb, args, 'train')
+                visualize_target(train_dataset, target, wandb, args, 'train')
 
         train_loss.append(sum(batch_train_loss)/len(batch_train_loss))
-        
+
         training_bench.eval()
         with torch.no_grad():
             pbar = tqdm.tqdm(val_dataloader)
@@ -244,4 +238,4 @@ if __name__ == '__main__':
     plt.plot(train_loss, label='Training loss')
     plt.plot(val_loss, label='Validation loss')
     plt.legend(frameon=False)
-    plt.savefig(os.path.join(output_dir,'loss_plot.png'))
+    plt.savefig(os.path.join(output_dir, 'loss_plot.png'))
