@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import math
+from fastkan.fastkan import FastKANLayer, FastKAN
 
 
 ################################################# CBAM ############################################################
@@ -11,11 +11,17 @@ class CBAMLayer(nn.Module):
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
 
-        self.fc = nn.Sequential(
-            nn.Linear(channel, channel // reduction),
-            nn.ReLU(inplace=True),
-            nn.Linear(channel // reduction, channel),
-        )
+        using_kan = True
+
+        if using_kan:
+            self.fc = FastKAN([channel, channel // reduction, channel])
+        else:
+            self.fc = nn.Sequential(
+                nn.Linear(channel, channel // reduction),
+                nn.ReLU(inplace=True),
+                nn.Linear(channel // reduction, channel),
+            )
+
         self.combine = nn.Conv2d(channel, int(channel/2), kernel_size=1)
         self.assemble = nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3)
 

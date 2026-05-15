@@ -6,12 +6,12 @@ import torch
 import torch.nn.parallel
 from contextlib import suppress
 
-from effdet import create_model, create_evaluator
+from effdet import create_model
 from timm.utils import AverageMeter, setup_default_logging
 from timm.models import load_checkpoint
 from timm.layers import set_layer_config
 
-from models.models import Att_FusionNet, Adaptive_Att_FusionNet
+from models.models import Adaptive_Att_FusionNet
 from models.detector import DetBenchPredictImagePair
 from data import create_dataset, create_loader, resolve_input_config
 from utils.evaluator import create_evaluator
@@ -167,9 +167,7 @@ def validate(args):
         num_workers=args.workers,
         pin_mem=args.pin_mem)
 
-    
     evaluator = create_evaluator(args.dataset, dataset, distributed=False, pred_yxyx=False, classwise=args.classwise)
-
 
     bench.eval()
     batch_time = AverageMeter()
@@ -231,7 +229,6 @@ def main():
         print("Checkpoint: "+args.checkpoint)
         print("Att Type: "+args.att_type)
 
-    
     mean_ap = validate(args)
     print("*"*50)
     print("Mean Average Precision Obtained is : "+str(mean_ap))
@@ -240,4 +237,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
