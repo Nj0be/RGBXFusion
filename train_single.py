@@ -23,6 +23,8 @@ from timm.utils import *
 from timm.optim import create_optimizer
 from timm.scheduler import create_scheduler
 
+from codecarbon import EmissionsTracker
+
 torch.backends.cudnn.benchmark = True
 
 
@@ -206,6 +208,8 @@ def get_clip_parameters(model, exclude_head=False):
 
 
 def main():
+    tracker = EmissionsTracker()
+    tracker.start()
     setup_default_logging()
     args, args_text = _parse_args()
     print(args)
@@ -388,6 +392,9 @@ def main():
         pass
     if best_metric is not None:
         logging.info('*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
+
+    emissions = tracker.stop()
+    print(f"Emissions: {emissions} kg CO₂")
 
 
 def create_datasets_and_loaders(

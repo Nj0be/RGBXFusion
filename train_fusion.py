@@ -15,6 +15,8 @@ from utils.utils import visualize_detections, visualize_target
 import matplotlib.pyplot as plt
 import numpy as np
 
+from codecarbon import EmissionsTracker
+
 def count_parameters(model):
     return sum(np.prod(v.size()) for name, v in model.named_parameters() if "auxiliary" not in name)
 
@@ -30,6 +32,8 @@ def freeze(network, freeze_layer):
 
 
 if __name__ == '__main__':
+    tracker = EmissionsTracker()
+    tracker.start()
 
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
     parser.add_argument('--branch', default='fusion', type=str, metavar='BRANCH',
@@ -241,3 +245,6 @@ if __name__ == '__main__':
     plt.plot(val_loss, label='Validation loss')
     plt.legend(frameon=False)
     plt.savefig(os.path.join(output_dir, 'loss_plot.png'))
+
+    emissions = tracker.stop()
+    print(f"Emissions: {emissions} kg CO₂")
