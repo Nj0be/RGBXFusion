@@ -1,26 +1,37 @@
 import torch
 import torch.nn as nn
-from fastkan.fastkan import FastKANLayer, FastKAN
+from models.KAN.fastkan.fastkan import FastKAN
+from models.KAN.efficient_kan.kan import KAN as EfficientKAN
+from models.KAN.WavKAN.KAN import KAN as WavKAN
 
 
 ################################################# CBAM ############################################################
 class CBAMLayer(nn.Module):
-    def __init__(self, channel, reduction=16):
+    def __init__(self, channel, cbam_backend='mlp', reduction=16):
         super(CBAMLayer, self).__init__()
 
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
 
-        using_kan = True
+        # "mlp", "FastKAN", "EfficientKAN", "WavKAN"
 
-        if using_kan:
-            self.fc = FastKAN([channel, channel // reduction, channel])
-        else:
+        if cbam_backend == "mlp":
             self.fc = nn.Sequential(
                 nn.Linear(channel, channel // reduction),
                 nn.ReLU(inplace=True),
                 nn.Linear(channel // reduction, channel),
             )
+        elif cbam_backend == "FastKAN":
+            self.fc = FastKAN([channel, channel // reduction, channel])
+        elif cbam_backend == "EfficientKAN":
+            self.fc = EfficientKAN([channel, channel // reduction, channel])
+        elif cbam_backend == "WavKAN":
+            self.fc = WavKAN([channel, channel // reduction, channel])
+        else:
+            raise ValueError(f"Unknown attention backend: {cbam_backend}. ")
+
+        # print(f"Using {cbam_backend}")
+        # print(f"Parameters: {sum(p.numel() for p in self.fc.parameters())}")
 
         self.combine = nn.Conv2d(channel, int(channel/2), kernel_size=1)
         self.assemble = nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3)

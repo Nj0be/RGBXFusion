@@ -65,7 +65,7 @@ class Att_FusionNet(nn.Module):
             in_chs = args.channels
             for level in range(self.config.num_levels):
                 if self.attention_type=="cbam":
-                    self.add_module("fusion_"+self.attention_type+str(level), CBAMLayer(2*in_chs))
+                    self.add_module("fusion_"+self.attention_type+str(level), CBAMLayer(2*in_chs, args.cbam_backend))
                 elif self.attention_type=="eca":
                     self.add_module("fusion_"+self.attention_type+str(level), attention_block(2*in_chs))
                 elif self.attention_type=="shuffle":
@@ -138,7 +138,7 @@ class Adaptive_Att_FusionNet(Att_FusionNet):
             for scene in range(self.num_scenes):
                 for level in range(self.config.num_levels):
                     if self.attention_type=="cbam":
-                        self.add_module("fusion"+str(scene)+"_"+self.attention_type+str(level), CBAMLayer(2*in_chs))
+                        self.add_module("fusion"+str(scene)+"_"+self.attention_type+str(level), CBAMLayer(2*in_chs, args.cbam_backend))
                     elif self.attention_type=="eca":
                         self.add_module("fusion"+str(scene)+"_"+self.attention_type+str(level), attention_block(2*in_chs))
                     elif self.attention_type=="shuffle":

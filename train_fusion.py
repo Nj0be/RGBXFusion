@@ -88,6 +88,8 @@ if __name__ == '__main__':
                         help='path to output folder (default: none, current dir)')
     parser.add_argument('--wandb', action='store_true',
                         help='use wandb for logging and visualization')
+    parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN"],
+                        help='type of CBAM backend')
 
     args = parser.parse_args()
     args.prefetcher = not args.no_prefetcher
