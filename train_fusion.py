@@ -92,8 +92,10 @@ if __name__ == '__main__':
                         help='path to output folder (default: none, current dir)')
     parser.add_argument('--wandb', action='store_true',
                         help='use wandb for logging and visualization')
-    parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN"],
+    parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN", "EfficientKAN_dual"],
                         help='type of CBAM backend')
+    parser.add_argument('--cbam-num-grids', default=5, type=int, help='number of grids for KAN backends')
+    parser.add_argument('--cbam-reduction', default=16, type=int, help='reduction for CBAM backend')
 
     args = parser.parse_args()
     args.prefetcher = not args.no_prefetcher

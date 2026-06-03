@@ -7,31 +7,43 @@ from models.KAN.WavKAN.KAN import KAN as WavKAN
 
 ################################################# CBAM ############################################################
 class CBAMLayer(nn.Module):
-    def __init__(self, channel, cbam_backend='mlp', reduction=16):
+    def __init__(self, channel, cbam_backend='mlp', reduction=16, num_grids=5):
         super(CBAMLayer, self).__init__()
+
+        self.cbam_backend = cbam_backend
 
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.max_pool = nn.AdaptiveMaxPool2d(1)
 
         # "mlp", "FastKAN", "EfficientKAN", "WavKAN"
 
-        if cbam_backend == "mlp":
+        print("channel:", channel)
+        print("channel//reduction:", channel // reduction)
+
+        if self.cbam_backend == "mlp":
             self.fc = nn.Sequential(
                 nn.Linear(channel, channel // reduction),
                 nn.ReLU(inplace=True),
                 nn.Linear(channel // reduction, channel),
             )
-        elif cbam_backend == "FastKAN":
-            self.fc = FastKAN([channel, channel // reduction, channel])
-        elif cbam_backend == "EfficientKAN":
-            self.fc = EfficientKAN([channel, channel // reduction, channel])
-        elif cbam_backend == "WavKAN":
+        elif self.cbam_backend == "FastKAN":
+            self.fc = FastKAN([channel, channel // reduction, channel], num_grids=num_grids)
+        elif self.cbam_backend == "EfficientKAN":
+            self.fc = EfficientKAN([channel, channel // reduction, channel], grid_size=num_grids)
+        elif self.cbam_backend == "WavKAN":
             self.fc = WavKAN([channel, channel // reduction, channel])
+        elif self.cbam_backend == "EfficientKAN_dual":
+            C = channel // 2  # 128 canali per modalità
+            self.fc_thermal = EfficientKAN([C, C // reduction, C], grid_size=num_grids)
+            self.fc_rgb     = EfficientKAN([C, C // reduction, C], grid_size=num_grids)
         else:
             raise ValueError(f"Unknown attention backend: {cbam_backend}. ")
 
-        # print(f"Using {cbam_backend}")
-        # print(f"Parameters: {sum(p.numel() for p in self.fc.parameters())}")
+        print(f"Using {cbam_backend}")
+        if self.cbam_backend == "EfficientKAN_dual":
+            print(f"Parameters: {sum(p.numel() for p in self.fc_rgb.parameters()) + sum(p.numel() for p in self.fc_thermal.parameters())}")
+        else:
+            print(f"Parameters: {sum(p.numel() for p in self.fc.parameters())}")
 
         self.combine = nn.Conv2d(channel, int(channel/2), kernel_size=1)
         self.assemble = nn.Conv2d(2, 1, kernel_size=7, stride=1, padding=3)
@@ -43,21 +55,39 @@ class CBAMLayer(nn.Module):
 
     def _forward_se(self, x):
         # Channel attention module (SE with max-pool and average-pool)
+        # b, c, h, w = x.size()
         b, c, _, _ = x.size()
-        x_avg = self.fc(self.avg_pool(x).view(b, c)).view(b, c, 1, 1)
-        x_max = self.fc(self.max_pool(x).view(b, c)).view(b, c, 1, 1)
 
-        y = torch.sigmoid(x_avg + x_max)
+        # print("b,c,h,w:", b, c, h, w)
 
-        # plot_y = y[0,:,0,0].cpu().numpy()
-        # plot_y = (plot_y - np.nanmin(plot_y)) / (np.nanmax(plot_y) - np.nanmin(plot_y))
-        # plot_x = np.arange(256)
-        # fig, ax = plt.subplots()
-        # markerline1, stemlines, _ = plt.stem(plot_x[:128], plot_y[:128], 'k')
-        # plt.setp(markerline1, 'color', 'k', 'markerfacecolor', 'k', 'mec', 'k')
-        # markerline2, stemlines, _ = plt.stem(plot_x[128:], plot_y[128:], 'crimson')
-        # plt.setp(markerline2, 'color', 'crimson', 'markerfacecolor', 'crimson', 'mec', 'crimson')
-        # plt.savefig('cam/{i}.png'.format(i=x.shape[-2]))
+        if self.cbam_backend == "EfficientKAN_dual":
+            C = c // 2
+
+            feat_avg = self.avg_pool(x).view(b, c)
+            feat_max = self.max_pool(x).view(b, c)
+
+            t_avg, r_avg = feat_avg[:, :C], feat_avg[:, C:]
+            t_max, r_max = feat_max[:, :C], feat_max[:, C:]
+
+            out_avg = torch.cat([self.fc_thermal(t_avg), self.fc_rgb(r_avg)], dim=1)
+            out_max = torch.cat([self.fc_thermal(t_max), self.fc_rgb(r_max)], dim=1)
+
+            y = torch.sigmoid(out_avg + out_max).view(b, c, 1, 1)
+        else:
+            x_avg = self.fc(self.avg_pool(x).view(b, c)).view(b, c, 1, 1)
+            x_max = self.fc(self.max_pool(x).view(b, c)).view(b, c, 1, 1)
+
+            y = torch.sigmoid(x_avg + x_max)
+
+            # plot_y = y[0,:,0,0].cpu().numpy()
+            # plot_y = (plot_y - np.nanmin(plot_y)) / (np.nanmax(plot_y) - np.nanmin(plot_y))
+            # plot_x = np.arange(256)
+            # fig, ax = plt.subplots()
+            # markerline1, stemlines, _ = plt.stem(plot_x[:128], plot_y[:128], 'k')
+            # plt.setp(markerline1, 'color', 'k', 'markerfacecolor', 'k', 'mec', 'k')
+            # markerline2, stemlines, _ = plt.stem(plot_x[128:], plot_y[128:], 'crimson')
+            # plt.setp(markerline2, 'color', 'crimson', 'markerfacecolor', 'crimson', 'mec', 'crimson')
+            # plt.savefig('cam/{i}.png'.format(i=x.shape[-2]))
 
         return self.combine(x * y)
 

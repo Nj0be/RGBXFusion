@@ -5,7 +5,7 @@ flir_night_ada/
 flir_day_agn/
 flir_day_ada/
 .ipynb_checkpoints/*
-output/*
+output*/*
 Pretrained Model Files/*
 fixed_fusion_rgb.sh
 fixed_fusion_rgb.txt

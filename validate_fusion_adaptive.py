@@ -99,8 +99,10 @@ parser.add_argument('--classwise', dest='classwise', action='store_true',
                     help='use Pascal evaluator for classwise metrics')
 parser.add_argument('--wandb', action='store_true',
                     help='use wandb for logging and visualization')
-parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN"],
+parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN", "EfficientKAN_dual"],
                     help='type of CBAM backend')
+parser.add_argument('--cbam-num-grids', type=int, default=5, help='number of grids for KAN backends')
+parser.add_argument('--cbam-reduction', type=int, default=16, help='reduction for CBAM backend')
 
 
 def validate(args):

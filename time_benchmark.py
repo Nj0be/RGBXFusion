@@ -117,6 +117,10 @@ if __name__ == '__main__':
     parser.add_argument('--rgb-checkpoint-path', type=str, default=None)
     parser.add_argument('--scene-mode', type=str, default='adaptive', choices=['adaptive', 'agnostic'])
     parser.add_argument('--device', type=int, default=0, help="cuda device id")
+    parser.add_argument('--cbam-backend', type=str, default='mlp', choices=["mlp", "FastKAN", "EfficientKAN", "WavKAN", "EfficientKAN_dual"],
+                        help='type of CBAM backend')
+    parser.add_argument('--cbam-num-grids', type=int, default=5, help='number of grids for KAN backends')
+    parser.add_argument('--cbam-reduction', type=int, default=16, help='reduction for CBAM backend')
 
     args = parser.parse_args()
     args.dataset = 'fake_benchmark_data'
