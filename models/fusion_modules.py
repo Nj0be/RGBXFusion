@@ -3,6 +3,7 @@ import torch.nn as nn
 from models.KAN.fastkan.fastkan import FastKAN
 from models.KAN.efficient_kan.kan import KAN as EfficientKAN
 from models.KAN.WavKAN.KAN import KAN as WavKAN
+# import matplotlib.pyplot as plt
 
 
 ################################################# CBAM ############################################################
@@ -28,6 +29,9 @@ class CBAMLayer(nn.Module):
             )
         elif self.cbam_backend == "FastKAN":
             self.fc = FastKAN([channel, channel // reduction, channel], num_grids=num_grids)
+            # x, y = self.fc.layers[0].plot_curve(0,0)
+            # plt.plot(x, y)
+            # plt.show()
         elif self.cbam_backend == "EfficientKAN":
             self.fc = EfficientKAN([channel, channel // reduction, channel], grid_size=num_grids)
         elif self.cbam_backend == "WavKAN":
