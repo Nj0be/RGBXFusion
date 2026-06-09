@@ -81,6 +81,8 @@ for dataset in DATASETS:
     for fusion_type, backend, reduction, num_grids in to_validate:
         print(fusion_type, dataset, backend, reduction, num_grids)
         output_folder_suffix = '_' + backend + '_' + str(reduction) + '_' + str(num_grids)
+        if backend == "mlp":
+            output_folder_suffix = dataset.split('_')[-1].title()
         model = output_folder_suffix if backend != "mlp" else "mlp"
 
         key = (dataset, model)
@@ -91,9 +93,9 @@ for dataset in DATASETS:
 
         if backend == "mlp":
             if fusion_type == "adaptive":
-                command = f"python validate_fusion_adaptive.py Datasets/FLIR_Aligned --dataset {dataset} --num-scenes 3 --checkpoint Checkpoints/FLIR_Aligned/Fusion_Models/Full/model_best.pth.tar --checkpoint-cls Checkpoints/FLIR_Aligned/Classifier/flir_classifier.pth.tar --checkpoint-scenes Checkpoints/FLIR_Aligned/Fusion_Models/Full/model_best.pth.tar Checkpoints/FLIR_Aligned/Fusion_Models/Day/model_best.pth.tar Checkpoints/FLIR_Aligned/Fusion_Models/Night/model_best.pth.tar --split test --num-classes 90 --rgb_mean 0.485 0.456 0.406 --rgb_std 0.229 0.224 0.225 --thermal_mean 0.519 0.519 0.519 --thermal_std 0.225 0.225 0.225 --model efficientdetv2_dt --batch-size=1 --branch fusion --att_type cbam"
+                command = f"python validate_fusion_adaptive.py Datasets/FLIR_Aligned --dataset {dataset} --num-scenes 3 --checkpoint Checkpoints/FLIR_Aligned/Fusion_Models/{output_folder_suffix}/model_best.pth.tar --checkpoint-cls Checkpoints/FLIR_Aligned/Classifier/flir_classifier.pth.tar --checkpoint-scenes Checkpoints/FLIR_Aligned/Fusion_Models/Full/model_best.pth.tar Checkpoints/FLIR_Aligned/Fusion_Models/Day/model_best.pth.tar Checkpoints/FLIR_Aligned/Fusion_Models/Night/model_best.pth.tar --split test --num-classes 90 --rgb_mean 0.485 0.456 0.406 --rgb_std 0.229 0.224 0.225 --thermal_mean 0.519 0.519 0.519 --thermal_std 0.225 0.225 0.225 --model efficientdetv2_dt --batch-size=1 --branch fusion --att_type cbam"
             elif fusion_type == "agnostic":
-                command = f"python validate_fusion.py Datasets/FLIR_Aligned --dataset {dataset} --checkpoint Checkpoints/FLIR_Aligned/Fusion_Models/Full/model_best.pth.tar --split test --num-classes 90 --rgb_mean 0.485 0.456 0.406 --rgb_std 0.229 0.224 0.225 --thermal_mean 0.519 0.519 0.519 --thermal_std 0.225 0.225 0.225 --model efficientdetv2_dt --batch-size=1 --branch fusion --att_type cbam"
+                command = f"python validate_fusion.py Datasets/FLIR_Aligned --dataset {dataset} --checkpoint Checkpoints/FLIR_Aligned/Fusion_Models/{output_folder_suffix}/model_best.pth.tar --split test --num-classes 90 --rgb_mean 0.485 0.456 0.406 --rgb_std 0.229 0.224 0.225 --thermal_mean 0.519 0.519 0.519 --thermal_std 0.225 0.225 0.225 --model efficientdetv2_dt --batch-size=1 --branch fusion --att_type cbam"
         else:
             if fusion_type == "adaptive":
                 command = f"python validate_fusion_adaptive.py Datasets/FLIR_Aligned --dataset {dataset} --num-scenes 3 --checkpoint output{output_folder_suffix}/train_flir/EXP_{dataset.upper()}_CBAM/model_best.pth.tar --checkpoint-cls Checkpoints/FLIR_Aligned/Classifier/flir_classifier.pth.tar --checkpoint-scenes output{output_folder_suffix}/train_flir/EXP_FLIR_ALIGNED_FULL_CBAM/model_best.pth.tar output{output_folder_suffix}/train_flir/EXP_FLIR_ALIGNED_DAY_CBAM/model_best.pth.tar output{output_folder_suffix}/train_flir/EXP_FLIR_ALIGNED_NIGHT_CBAM/model_best.pth.tar --split test --num-classes 90 --rgb_mean 0.485 0.456 0.406 --rgb_std 0.229 0.224 0.225 --thermal_mean 0.519 0.519 0.519 --thermal_std 0.225 0.225 0.225 --model efficientdetv2_dt --batch-size=1 --branch fusion --att_type cbam --cbam-backend {backend} --cbam-reduction {reduction} --cbam-num-grids {num_grids}"
