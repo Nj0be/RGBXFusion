@@ -1,0 +1,34 @@
+dataset,component,params,pct,trained,provenance
+FLIR,thermal_backbone,12526324,44.13,False,== thermal (dominio)
+FLIR,thermal_fpn,810079,2.85,False,== thermal (dominio)
+FLIR,thermal_class_net,165930,0.58,False,== thermal (dominio)
+FLIR,thermal_box_net,66084,0.23,False,== thermal (dominio)
+FLIR,rgb_backbone,12526324,44.13,False,nessun ckpt dominio -> COCO/altro
+FLIR,rgb_fpn,810079,2.85,False,parziale (thermal:1%)
+FLIR,rgb_class_net,165930,0.58,False,nessun ckpt dominio -> COCO/altro
+FLIR,rgb_box_net,66084,0.23,False,nessun ckpt dominio -> COCO/altro
+FLIR,fusion_class_net,165930,0.58,False,== thermal (dominio)
+FLIR,fusion_box_net,66084,0.23,False,== thermal (dominio)
+FLIR,fusion_cbam,207295,0.73,True,addestrato in fusione
+M3FD,thermal_backbone,12526324,45.91,False,== thermal (dominio)
+M3FD,thermal_fpn,810079,2.97,False,== thermal (dominio)
+M3FD,thermal_class_net,68406,0.25,False,== thermal (dominio)
+M3FD,thermal_box_net,66084,0.24,False,== thermal (dominio)
+M3FD,rgb_backbone,12526324,45.91,False,== rgb (dominio)
+M3FD,rgb_fpn,810079,2.97,False,== rgb (dominio)
+M3FD,rgb_class_net,68406,0.25,False,== rgb (dominio)
+M3FD,rgb_box_net,66084,0.24,False,== rgb (dominio)
+M3FD,fusion_class_net,68406,0.25,False,== thermal (dominio)
+M3FD,fusion_box_net,66084,0.24,False,== thermal (dominio)
+M3FD,fusion_cbam,207295,0.76,True,addestrato in fusione
+STF,thermal_backbone,12526324,45.92,False,== gated (dominio)
+STF,thermal_fpn,810079,2.97,False,== gated (dominio)
+STF,thermal_class_net,66084,0.24,False,== gated (dominio)
+STF,thermal_box_net,66084,0.24,False,== gated (dominio)
+STF,rgb_backbone,12526324,45.92,False,== rgb (dominio)
+STF,rgb_fpn,810079,2.97,False,== rgb (dominio)
+STF,rgb_class_net,66084,0.24,False,== rgb (dominio)
+STF,rgb_box_net,66084,0.24,False,== rgb (dominio)
+STF,fusion_class_net,66084,0.24,False,== gated (dominio)
+STF,fusion_box_net,66084,0.24,False,== gated (dominio)
+STF,fusion_cbam,207295,0.76,True,addestrato in fusione
